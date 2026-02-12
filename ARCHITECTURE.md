@@ -1,6 +1,6 @@
 # Architecture
 
-NPS is a reliable transport protocol built on UDP. It provides ordered,
+RIFT is a reliable transport protocol built on UDP. It provides ordered,
 congestion-controlled delivery with selective acknowledgements, payload
 encryption, and optional eBPF-based packet filtering.
 
@@ -8,8 +8,8 @@ encryption, and optional eBPF-based packet filtering.
 
 ```
 include/          Public headers (one per module)
-src/              Library implementation → build/libnps.a
-tools/            Standalone binaries linked against libnps
+src/              Library implementation → build/librift.a
+tools/            Standalone binaries linked against librift
 ebpf/             BPF programs (XDP + TC) and userspace loader
 ```
 
@@ -17,35 +17,35 @@ ebpf/             BPF programs (XDP + TC) and userspace loader
 
 ```
 ┌─────────────┐
-│  nps_config  │  Compile-time constants (MTU, window, timeouts, ports)
+│  rift_config  │  Compile-time constants (MTU, window, timeouts, ports)
 └──────┬───────┘
        │
  ┌─────▼──────┐     ┌────────────┐
- │ nps_protocol│────▶│  nps_crc32  │   Packet format, serialize/deserialize, CRC
+ │ rift_protocol│────▶│  rift_crc32  │   Packet format, serialize/deserialize, CRC
  └─────┬───────┘     └────────────┘
        │
  ┌─────▼──────┐     ┌────────────┐
- │  nps_buffer │────▶│  nps_window │   Ring buffer → sliding window + SACK
+ │  rift_buffer │────▶│  rift_window │   Ring buffer → sliding window + SACK
  └─────┬───────┘     └────────────┘
        │
  ┌─────▼──────────┐  ┌──────────────┐  ┌──────────┐
- │ nps_congestion  │  │   nps_rtt    │  │ nps_stats │
+ │ rift_congestion  │  │   rift_rtt    │  │ rift_stats │
  │ (TCP Cubic)     │  │ (RFC 6298)   │  │ (atomic)  │
  └─────┬───────────┘  └──────┬───────┘  └──────┬────┘
        │                     │                  │
  ┌─────▼─────────────────────▼──────────────────▼────┐
- │              nps_sender / nps_receiver              │
+ │              rift_sender / rift_receiver              │
  │        Connection state machines over UDP           │
  └─────────────────────┬─────────────────────────────-─┘
                        │
              ┌─────────▼─────────┐
-             │     nps_mux       │  Multiplexes N streams over 1 socket
+             │     rift_mux       │  Multiplexes N streams over 1 socket
              └───────────────────┘
 
  Cross-cutting:
-   nps_log     Severity-filtered, colored, optional file output
-   nps_trace   JSON Lines / columnar packet event logger
-   nps_crypto  ChaCha20 payload encryption (RFC 8439)
+   rift_log     Severity-filtered, colored, optional file output
+   rift_trace   JSON Lines / columnar packet event logger
+   rift_crypto  ChaCha20 payload encryption (RFC 8439)
 ```
 
 ## Key Design Decisions
@@ -81,7 +81,7 @@ FIN/FIN-ACK teardown. Retransmission applies to handshake and teardown
 packets as well.
 
 ### Multiplexing
-`nps_mux` maps connection IDs to independent stream contexts (window,
+`rift_mux` maps connection IDs to independent stream contexts (window,
 congestion, RTT, stats). A single UDP socket handles all streams,
 dispatching inbound packets by `conn_id`.
 
@@ -104,14 +104,14 @@ over the payload buffer.
 
 | Artifact | Description |
 |---|---|
-| `build/libnps.a` | Static library (all `src/*.c` objects) |
-| `build/nps_server` | Test receiver |
-| `build/nps_client` | Test sender |
-| `build/nps_bench` | Throughput/latency benchmark |
-| `build/nps_losssim` | UDP loss simulator proxy |
-| `build/nps_integration_test` | Unit + integration tests |
-| `build/nps_stress_test` | Congestion recovery stress test |
-| `build/nps_mux_test` | Multiplexed stream test |
+| `build/librift.a` | Static library (all `src/*.c` objects) |
+| `build/rift_server` | Test receiver |
+| `build/rift_client` | Test sender |
+| `build/rift_bench` | Throughput/latency benchmark |
+| `build/rift_losssim` | UDP loss simulator proxy |
+| `build/rift_integration_test` | Unit + integration tests |
+| `build/rift_stress_test` | Congestion recovery stress test |
+| `build/rift_mux_test` | Multiplexed stream test |
 
 ## Threading Model
 

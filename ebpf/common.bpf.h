@@ -1,12 +1,12 @@
-/* common.bpf.h — shared BPF definitions for NPS eBPF programs */
+/* common.bpf.h — shared BPF definitions for RIFT eBPF programs */
 
-#ifndef NPS_COMMON_BPF_H
-#define NPS_COMMON_BPF_H
+#ifndef RIFT_COMMON_BPF_H
+#define RIFT_COMMON_BPF_H
 
 #include <stdint.h>
 
 /* ── Filter Rule Key ──────────────────────────────────────────────── */
-struct nps_filter_key {
+struct rift_filter_key {
   uint32_t src_ip;   /* Source IP (network byte order)     */
   uint32_t dst_ip;   /* Destination IP (network byte order) */
   uint16_t src_port; /* Source port (network byte order)   */
@@ -16,22 +16,22 @@ struct nps_filter_key {
 };
 
 /* ── Filter Rule Action ───────────────────────────────────────────── */
-enum nps_filter_action {
-  NPS_ACTION_PASS = 0,  /* Allow packet                      */
-  NPS_ACTION_DROP = 1,  /* Drop packet                       */
-  NPS_ACTION_LIMIT = 2, /* Rate limit                        */
+enum rift_filter_action {
+  RIFT_ACTION_PASS = 0,  /* Allow packet                      */
+  RIFT_ACTION_DROP = 1,  /* Drop packet                       */
+  RIFT_ACTION_LIMIT = 2, /* Rate limit                        */
 };
 
 /* ── Filter Rule Value ────────────────────────────────────────────── */
-struct nps_filter_rule {
-  uint32_t action;     /* enum nps_filter_action             */
+struct rift_filter_rule {
+  uint32_t action;     /* enum rift_filter_action             */
   uint64_t rate_pps;   /* Packets per second limit           */
   uint64_t rate_bps;   /* Bytes per second limit             */
   uint64_t created_ns; /* Rule creation timestamp            */
 };
 
 /* ── Connection Stats ─────────────────────────────────────────────── */
-struct nps_conn_stats {
+struct rift_conn_stats {
   uint64_t packets;         /* Total packets seen                 */
   uint64_t bytes;           /* Total bytes seen                   */
   uint64_t packets_passed;  /* Packets that passed filter         */
@@ -41,7 +41,7 @@ struct nps_conn_stats {
 };
 
 /* ── Rate Limiter State ───────────────────────────────────────────── */
-struct nps_rate_state {
+struct rift_rate_state {
   uint64_t tokens;         /* Available tokens                   */
   uint64_t last_update_ns; /* Last token refill time             */
   uint64_t max_tokens;     /* Token bucket capacity              */
@@ -49,29 +49,29 @@ struct nps_rate_state {
 };
 
 /* ── Global Statistics (per-CPU array index 0) ────────────────────── */
-struct nps_global_stats {
+struct rift_global_stats {
   uint64_t total_packets;
   uint64_t total_bytes;
   uint64_t total_passed;
   uint64_t total_dropped;
   uint64_t total_rate_limited;
-  uint64_t nps_protocol_packets; /* Packets matching NPS port    */
+  uint64_t rift_protocol_packets; /* Packets matching RIFT port    */
 };
 
 /* ── Map Names (for pinning) ──────────────────────────────────────── */
-#define NPS_MAP_FILTER_RULES "nps_filter_rules"
-#define NPS_MAP_CONN_STATS "nps_conn_stats"
-#define NPS_MAP_RATE_STATE "nps_rate_state"
-#define NPS_MAP_GLOBAL_STATS "nps_global_stats"
+#define RIFT_MAP_FILTER_RULES "rift_filter_rules"
+#define RIFT_MAP_CONN_STATS "rift_conn_stats"
+#define RIFT_MAP_RATE_STATE "rift_rate_state"
+#define RIFT_MAP_GLOBAL_STATS "rift_global_stats"
 
 /* ── Constants ────────────────────────────────────────────────────── */
-#define NPS_MAX_FILTER_RULES 1024
-#define NPS_MAX_CONNECTIONS 65536
-#define NPS_DEFAULT_PORT_NBO __builtin_bswap16(9999)
+#define RIFT_MAX_FILTER_RULES 1024
+#define RIFT_MAX_CONNECTIONS 65536
+#define RIFT_DEFAULT_PORT_NBO __builtin_bswap16(9999)
 
 /* Token bucket constants */
-#define NPS_TOKEN_BUCKET_SIZE 10000 /* Max burst */
-#define NPS_TOKENS_PER_SEC 10000    /* Default rate */
-#define NPS_NS_PER_SEC 1000000000ULL
+#define RIFT_TOKEN_BUCKET_SIZE 10000 /* Max burst */
+#define RIFT_TOKENS_PER_SEC 10000    /* Default rate */
+#define RIFT_NS_PER_SEC 1000000000ULL
 
-#endif /* NPS_COMMON_BPF_H */
+#endif /* RIFT_COMMON_BPF_H */

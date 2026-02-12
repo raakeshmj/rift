@@ -1,10 +1,10 @@
-# NPS Protocol Specification
+# RIFT Protocol Specification
 
 Version: 1.0
 
 ## 1. Overview
 
-NPS (Network Protocol Stack) is a custom reliable transport protocol built on top of UDP. It provides:
+RIFT (Network Protocol Stack) is a custom reliable transport protocol built on top of UDP. It provides:
 
 - Reliable, ordered delivery of data streams
 - Selective Acknowledgment (SACK) for gap recovery
@@ -157,7 +157,7 @@ Client                          Server
 
 ## 7. Congestion Control
 
-NPS implements a TCP Cubic-inspired congestion algorithm:
+RIFT implements a TCP Cubic-inspired congestion algorithm:
 
 | Phase | Behavior |
 |-------|----------|

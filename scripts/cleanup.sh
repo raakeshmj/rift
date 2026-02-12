@@ -1,12 +1,12 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════
-# cleanup.sh - Cleanup script for NPS
+# cleanup.sh - Cleanup script for RIFT
 # Removes build artifacts, netem rules, and BPF programs
 # ═══════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-echo "NPS Cleanup"
+echo "RIFT Cleanup"
 echo "═══════════════════════════════════════════════════════"
 
 # Clean build
@@ -26,15 +26,15 @@ if command -v ip &>/dev/null; then
 fi
 
 # Remove pinned BPF maps
-if [ -d /sys/fs/bpf/nps ]; then
+if [ -d /sys/fs/bpf/rift ]; then
     echo "  Removing pinned BPF maps..."
-    sudo rm -rf /sys/fs/bpf/nps 2>/dev/null || true
+    sudo rm -rf /sys/fs/bpf/rift 2>/dev/null || true
 fi
 
 # Remove log files
-if [ -f /tmp/nps.log ]; then
+if [ -f /tmp/rift.log ]; then
     echo "  Removing log files..."
-    rm -f /tmp/nps.log
+    rm -f /tmp/rift.log
 fi
 
 # Remove benchmark results

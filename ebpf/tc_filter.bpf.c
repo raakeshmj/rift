@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* tc_filter.bpf.c — TC egress packet filter for NPS */
+/* tc_filter.bpf.c — TC egress packet filter for RIFT */
 
 #include "common.bpf.h"
 #include "vmlinux.h"
@@ -14,54 +14,54 @@
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_FILTER_RULES);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_filter_rule);
-} nps_tc_filter_rules SEC(".maps");
+  __uint(max_entries, RIFT_MAX_FILTER_RULES);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_filter_rule);
+} rift_tc_filter_rules SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_CONNECTIONS);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_conn_stats);
-} nps_tc_conn_stats SEC(".maps");
+  __uint(max_entries, RIFT_MAX_CONNECTIONS);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_conn_stats);
+} rift_tc_conn_stats SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_CONNECTIONS);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_rate_state);
-} nps_tc_rate_state SEC(".maps");
+  __uint(max_entries, RIFT_MAX_CONNECTIONS);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_rate_state);
+} rift_tc_rate_state SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __uint(max_entries, 1);
   __type(key, __u32);
-  __type(value, struct nps_global_stats);
-} nps_tc_global_stats SEC(".maps");
+  __type(value, struct rift_global_stats);
+} rift_tc_global_stats SEC(".maps");
 
 /* ── Rate Limit Check ─────────────────────────────────────────────── */
 
-static __always_inline int tc_check_rate_limit(struct nps_filter_key *key,
-                                               struct nps_filter_rule *rule) {
-  struct nps_rate_state *state;
+static __always_inline int tc_check_rate_limit(struct rift_filter_key *key,
+                                               struct rift_filter_rule *rule) {
+  struct rift_rate_state *state;
   __u64 now = bpf_ktime_get_ns();
 
-  state = bpf_map_lookup_elem(&nps_tc_rate_state, key);
+  state = bpf_map_lookup_elem(&rift_tc_rate_state, key);
   if (!state) {
-    struct nps_rate_state new_state = {
-        .tokens = rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKEN_BUCKET_SIZE,
+    struct rift_rate_state new_state = {
+        .tokens = rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKEN_BUCKET_SIZE,
         .last_update_ns = now,
         .max_tokens =
-            rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKEN_BUCKET_SIZE,
-        .refill_rate = rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKENS_PER_SEC,
+            rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKEN_BUCKET_SIZE,
+        .refill_rate = rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKENS_PER_SEC,
     };
-    bpf_map_update_elem(&nps_tc_rate_state, key, &new_state, BPF_ANY);
+    bpf_map_update_elem(&rift_tc_rate_state, key, &new_state, BPF_ANY);
     return 1;
   }
 
   __u64 elapsed_ns = now - state->last_update_ns;
-  __u64 new_tokens = (elapsed_ns * state->refill_rate) / NPS_NS_PER_SEC;
+  __u64 new_tokens = (elapsed_ns * state->refill_rate) / RIFT_NS_PER_SEC;
 
   if (new_tokens > 0) {
     state->tokens += new_tokens;
@@ -81,7 +81,7 @@ static __always_inline int tc_check_rate_limit(struct nps_filter_key *key,
 /* ── TC Program ───────────────────────────────────────────────────── */
 
 SEC("tc")
-int nps_tc_filter(struct __sk_buff *skb) {
+int rift_tc_filter(struct __sk_buff *skb) {
   void *data = (void *)(long)skb->data;
   void *data_end = (void *)(long)skb->data_end;
 
@@ -124,7 +124,7 @@ int nps_tc_filter(struct __sk_buff *skb) {
   }
 
   /* Build key */
-  struct nps_filter_key key = {
+  struct rift_filter_key key = {
       .src_ip = ip->saddr,
       .dst_ip = ip->daddr,
       .src_port = src_port,
@@ -132,36 +132,36 @@ int nps_tc_filter(struct __sk_buff *skb) {
       .protocol = ip->protocol,
   };
 
-  int is_nps = (dst_port == bpf_htons(9999) || src_port == bpf_htons(9999));
+  int is_rift = (dst_port == bpf_htons(9999) || src_port == bpf_htons(9999));
 
   /* Global stats */
   __u32 stats_key = 0;
-  struct nps_global_stats *gstats;
-  gstats = bpf_map_lookup_elem(&nps_tc_global_stats, &stats_key);
+  struct rift_global_stats *gstats;
+  gstats = bpf_map_lookup_elem(&rift_tc_global_stats, &stats_key);
 
   /* Filter rule lookup */
-  struct nps_filter_rule *rule;
-  rule = bpf_map_lookup_elem(&nps_tc_filter_rules, &key);
+  struct rift_filter_rule *rule;
+  rule = bpf_map_lookup_elem(&rift_tc_filter_rules, &key);
 
   if (!rule) {
-    struct nps_filter_key wild_key = {
+    struct rift_filter_key wild_key = {
         .src_ip = ip->saddr,
         .dst_ip = 0,
         .src_port = src_port,
         .dst_port = 0,
         .protocol = ip->protocol,
     };
-    rule = bpf_map_lookup_elem(&nps_tc_filter_rules, &wild_key);
+    rule = bpf_map_lookup_elem(&rift_tc_filter_rules, &wild_key);
   }
 
   int passed = 1;
 
   if (rule) {
     switch (rule->action) {
-    case NPS_ACTION_DROP:
+    case RIFT_ACTION_DROP:
       passed = 0;
       break;
-    case NPS_ACTION_LIMIT:
+    case RIFT_ACTION_LIMIT:
       if (!tc_check_rate_limit(&key, rule)) {
         passed = 0;
         if (gstats)
@@ -181,14 +181,14 @@ int nps_tc_filter(struct __sk_buff *skb) {
       gstats->total_passed++;
     else
       gstats->total_dropped++;
-    if (is_nps)
-      gstats->nps_protocol_packets++;
+    if (is_rift)
+      gstats->rift_protocol_packets++;
   }
 
   /* Connection stats */
   __u64 now = bpf_ktime_get_ns();
-  struct nps_conn_stats *cstats;
-  cstats = bpf_map_lookup_elem(&nps_tc_conn_stats, &key);
+  struct rift_conn_stats *cstats;
+  cstats = bpf_map_lookup_elem(&rift_tc_conn_stats, &key);
   if (cstats) {
     cstats->packets++;
     cstats->bytes += pkt_len;
@@ -198,7 +198,7 @@ int nps_tc_filter(struct __sk_buff *skb) {
     else
       cstats->packets_dropped++;
   } else {
-    struct nps_conn_stats new_stats = {
+    struct rift_conn_stats new_stats = {
         .packets = 1,
         .bytes = pkt_len,
         .packets_passed = passed ? 1 : 0,
@@ -206,7 +206,7 @@ int nps_tc_filter(struct __sk_buff *skb) {
         .first_seen_ns = now,
         .last_seen_ns = now,
     };
-    bpf_map_update_elem(&nps_tc_conn_stats, &key, &new_stats, BPF_ANY);
+    bpf_map_update_elem(&rift_tc_conn_stats, &key, &new_stats, BPF_ANY);
   }
 
   return passed ? TC_ACT_OK : TC_ACT_SHOT;

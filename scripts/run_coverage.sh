@@ -8,8 +8,8 @@ make clean
 make all CFLAGS="-Wall -Wextra -Werror -std=c11 -O0 -g -fprofile-arcs -ftest-coverage -D_POSIX_C_SOURCE=200809L" LDFLAGS="-fprofile-arcs -ftest-coverage -lm -lpthread"
 
 # Run all tests
-./build/nps_integration_test
-./build/nps_metrics --size 1048576
+./build/rift_integration_test
+./build/rift_metrics --size 1048576
 
 # Generate report
 if command -v lcov >/dev/null; then

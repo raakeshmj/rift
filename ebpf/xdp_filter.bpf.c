@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* xdp_filter.bpf.c — XDP ingress packet filter for NPS */
+/* xdp_filter.bpf.c — XDP ingress packet filter for RIFT */
 
 #include "common.bpf.h"
 #include "vmlinux.h"
@@ -12,40 +12,40 @@
 /* Filter rules: key = {src_ip, dst_ip, src_port, dst_port, proto} */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_FILTER_RULES);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_filter_rule);
-} nps_filter_rules SEC(".maps");
+  __uint(max_entries, RIFT_MAX_FILTER_RULES);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_filter_rule);
+} rift_filter_rules SEC(".maps");
 
 /* Per-connection statistics */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_CONNECTIONS);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_conn_stats);
-} nps_conn_stats SEC(".maps");
+  __uint(max_entries, RIFT_MAX_CONNECTIONS);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_conn_stats);
+} rift_conn_stats SEC(".maps");
 
 /* Per-connection rate limiter state */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
-  __uint(max_entries, NPS_MAX_CONNECTIONS);
-  __type(key, struct nps_filter_key);
-  __type(value, struct nps_rate_state);
-} nps_rate_state SEC(".maps");
+  __uint(max_entries, RIFT_MAX_CONNECTIONS);
+  __type(key, struct rift_filter_key);
+  __type(value, struct rift_rate_state);
+} rift_rate_state SEC(".maps");
 
 /* Global statistics (per-CPU) */
 struct {
   __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __uint(max_entries, 1);
   __type(key, __u32);
-  __type(value, struct nps_global_stats);
-} nps_global_stats SEC(".maps");
+  __type(value, struct rift_global_stats);
+} rift_global_stats SEC(".maps");
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
-static __always_inline void update_global_stats(struct nps_global_stats *g,
+static __always_inline void update_global_stats(struct rift_global_stats *g,
                                                 __u64 bytes, int passed,
-                                                int is_nps) {
+                                                int is_rift) {
   g->total_packets++;
   g->total_bytes += bytes;
   if (passed) {
@@ -53,17 +53,17 @@ static __always_inline void update_global_stats(struct nps_global_stats *g,
   } else {
     g->total_dropped++;
   }
-  if (is_nps) {
-    g->nps_protocol_packets++;
+  if (is_rift) {
+    g->rift_protocol_packets++;
   }
 }
 
-static __always_inline void update_conn_stats(struct nps_filter_key *key,
+static __always_inline void update_conn_stats(struct rift_filter_key *key,
                                               __u64 bytes, int passed) {
-  struct nps_conn_stats *stats;
+  struct rift_conn_stats *stats;
   __u64 now = bpf_ktime_get_ns();
 
-  stats = bpf_map_lookup_elem(&nps_conn_stats, key);
+  stats = bpf_map_lookup_elem(&rift_conn_stats, key);
   if (stats) {
     stats->packets++;
     stats->bytes += bytes;
@@ -73,7 +73,7 @@ static __always_inline void update_conn_stats(struct nps_filter_key *key,
     else
       stats->packets_dropped++;
   } else {
-    struct nps_conn_stats new_stats = {
+    struct rift_conn_stats new_stats = {
         .packets = 1,
         .bytes = bytes,
         .packets_passed = passed ? 1 : 0,
@@ -81,32 +81,32 @@ static __always_inline void update_conn_stats(struct nps_filter_key *key,
         .first_seen_ns = now,
         .last_seen_ns = now,
     };
-    bpf_map_update_elem(&nps_conn_stats, key, &new_stats, BPF_ANY);
+    bpf_map_update_elem(&rift_conn_stats, key, &new_stats, BPF_ANY);
   }
 }
 
-static __always_inline int check_rate_limit(struct nps_filter_key *key,
-                                            struct nps_filter_rule *rule) {
-  struct nps_rate_state *state;
+static __always_inline int check_rate_limit(struct rift_filter_key *key,
+                                            struct rift_filter_rule *rule) {
+  struct rift_rate_state *state;
   __u64 now = bpf_ktime_get_ns();
 
-  state = bpf_map_lookup_elem(&nps_rate_state, key);
+  state = bpf_map_lookup_elem(&rift_rate_state, key);
   if (!state) {
     /* Initialize rate state */
-    struct nps_rate_state new_state = {
-        .tokens = rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKEN_BUCKET_SIZE,
+    struct rift_rate_state new_state = {
+        .tokens = rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKEN_BUCKET_SIZE,
         .last_update_ns = now,
         .max_tokens =
-            rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKEN_BUCKET_SIZE,
-        .refill_rate = rule->rate_pps > 0 ? rule->rate_pps : NPS_TOKENS_PER_SEC,
+            rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKEN_BUCKET_SIZE,
+        .refill_rate = rule->rate_pps > 0 ? rule->rate_pps : RIFT_TOKENS_PER_SEC,
     };
-    bpf_map_update_elem(&nps_rate_state, key, &new_state, BPF_ANY);
+    bpf_map_update_elem(&rift_rate_state, key, &new_state, BPF_ANY);
     return 1; /* Allow first packet */
   }
 
   /* Refill tokens based on elapsed time */
   __u64 elapsed_ns = now - state->last_update_ns;
-  __u64 new_tokens = (elapsed_ns * state->refill_rate) / NPS_NS_PER_SEC;
+  __u64 new_tokens = (elapsed_ns * state->refill_rate) / RIFT_NS_PER_SEC;
 
   if (new_tokens > 0) {
     state->tokens += new_tokens;
@@ -127,7 +127,7 @@ static __always_inline int check_rate_limit(struct nps_filter_key *key,
 /* ── XDP Program ──────────────────────────────────────────────────── */
 
 SEC("xdp")
-int nps_xdp_filter(struct xdp_md *ctx) {
+int rift_xdp_filter(struct xdp_md *ctx) {
   void *data = (void *)(long)ctx->data;
   void *data_end = (void *)(long)ctx->data_end;
 
@@ -172,7 +172,7 @@ int nps_xdp_filter(struct xdp_md *ctx) {
   }
 
   /* ── Build Filter Key ───────────────────────────────────────── */
-  struct nps_filter_key key = {
+  struct rift_filter_key key = {
       .src_ip = ip->saddr,
       .dst_ip = ip->daddr,
       .src_port = src_port,
@@ -180,31 +180,31 @@ int nps_xdp_filter(struct xdp_md *ctx) {
       .protocol = ip->protocol,
   };
 
-  /* Check if this is NPS protocol traffic */
-  int is_nps = (dst_port == bpf_htons(9999) || src_port == bpf_htons(9999));
+  /* Check if this is RIFT protocol traffic */
+  int is_rift = (dst_port == bpf_htons(9999) || src_port == bpf_htons(9999));
 
   /* ── Global Stats ───────────────────────────────────────────── */
   __u32 stats_key = 0;
-  struct nps_global_stats *gstats;
-  gstats = bpf_map_lookup_elem(&nps_global_stats, &stats_key);
+  struct rift_global_stats *gstats;
+  gstats = bpf_map_lookup_elem(&rift_global_stats, &stats_key);
 
   /* ── Lookup Filter Rule ─────────────────────────────────────── */
-  struct nps_filter_rule *rule;
-  int action = NPS_ACTION_PASS;
+  struct rift_filter_rule *rule;
+  int action = RIFT_ACTION_PASS;
 
   /* Try exact match first */
-  rule = bpf_map_lookup_elem(&nps_filter_rules, &key);
+  rule = bpf_map_lookup_elem(&rift_filter_rules, &key);
 
   if (!rule) {
     /* Try wildcard: match on dst_ip + dst_port only */
-    struct nps_filter_key wild_key = {
+    struct rift_filter_key wild_key = {
         .src_ip = 0,
         .dst_ip = ip->daddr,
         .src_port = 0,
         .dst_port = dst_port,
         .protocol = ip->protocol,
     };
-    rule = bpf_map_lookup_elem(&nps_filter_rules, &wild_key);
+    rule = bpf_map_lookup_elem(&rift_filter_rules, &wild_key);
   }
 
   if (rule) {
@@ -215,11 +215,11 @@ int nps_xdp_filter(struct xdp_md *ctx) {
   int passed = 1;
 
   switch (action) {
-  case NPS_ACTION_DROP:
+  case RIFT_ACTION_DROP:
     passed = 0;
     break;
 
-  case NPS_ACTION_LIMIT:
+  case RIFT_ACTION_LIMIT:
     if (rule && !check_rate_limit(&key, rule)) {
       passed = 0;
       if (gstats)
@@ -227,14 +227,14 @@ int nps_xdp_filter(struct xdp_md *ctx) {
     }
     break;
 
-  case NPS_ACTION_PASS:
+  case RIFT_ACTION_PASS:
   default:
     break;
   }
 
   /* ── Update Stats ───────────────────────────────────────────── */
   if (gstats)
-    update_global_stats(gstats, pkt_len, passed, is_nps);
+    update_global_stats(gstats, pkt_len, passed, is_rift);
 
   update_conn_stats(&key, pkt_len, passed);
 

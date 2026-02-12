@@ -1,4 +1,4 @@
-# NPS — Userspace Network Protocol Stack
+# RIFT — Userspace Network Protocol Stack
 
 Custom reliable transport protocol over UDP with eBPF kernel-space packet filtering, ChaCha20 encryption, and connection multiplexing.
 
@@ -21,35 +21,35 @@ Requires GCC or Clang with C11 support. No external dependencies for the core li
 
 ```bash
 # terminal 1 — start receiver
-./build/nps_server -p 9999
+./build/rift_server -p 9999
 
 # terminal 2 — send 10 MB
-./build/nps_client -h 127.0.0.1 -p 9999 -s 10485760
+./build/rift_client -h 127.0.0.1 -p 9999 -s 10485760
 ```
 
 ### Benchmark
 
 ```bash
-./build/nps_bench --size 1048576 --runs 3
+./build/rift_bench --size 1048576 --runs 3
 ```
 
 ### Loss Simulation
 
 ```bash
 # receiver
-./build/nps_server -p 9999
+./build/rift_server -p 9999
 
 # UDP proxy: 5% loss, 10ms delay, 5ms jitter
-./build/nps_losssim -L 9998 -T 9999 -l 0.05 -d 10 -j 5
+./build/rift_losssim -L 9998 -T 9999 -l 0.05 -d 10 -j 5
 
 # sender through proxy
-./build/nps_client -h 127.0.0.1 -p 9998 -s 1048576
+./build/rift_client -h 127.0.0.1 -p 9998 -s 1048576
 ```
 
 ### Congestion Stress Test
 
 ```bash
-./build/nps_stress_test -p 10010
+./build/rift_stress_test -p 10010
 ```
 
 Runs 5 phases: ramp → saturate → loss burst (20%) → recovery measurement → multi-burst.
@@ -57,7 +57,7 @@ Runs 5 phases: ramp → saturate → loss burst (20%) → recovery measurement �
 ### Multiplexing Test
 
 ```bash
-./build/nps_mux_test
+./build/rift_mux_test
 ```
 
 Opens 4 concurrent streams over a single socket, sends 256 KB per stream, verifies data integrity.
@@ -69,33 +69,33 @@ Opens 4 concurrent streams over a single socket, sends 256 KB per stream, verifi
 make ebpf
 
 # load XDP filter on an interface
-sudo ./build/ebpf/nps_loader --iface eth0 --attach xdp
+sudo ./build/ebpf/rift_loader --iface eth0 --attach xdp
 
 # view live stats
-sudo ./build/ebpf/nps_map_reader watch
+sudo ./build/ebpf/rift_map_reader watch
 
 # add a rate limit rule (1000 pps on port 9999)
-sudo ./build/ebpf/nps_map_reader add-rule 0 0 0 9999 17 2 1000
+sudo ./build/ebpf/rift_map_reader add-rule 0 0 0 9999 17 2 1000
 ```
 
 ### Wireshark
 
 ```bash
-wireshark -X lua_script:wireshark/nps_dissector.lua -k -i lo
+wireshark -X lua_script:wireshark/rift_dissector.lua -k -i lo
 ```
 
 ## Configuration
 
-All parameters are in `include/nps_config.h`:
+All parameters are in `include/rift_config.h`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `NPS_MAX_PAYLOAD` | 1400 | Max payload per packet (bytes) |
-| `NPS_WINDOW_SIZE` | 64 | Sliding window size |
-| `NPS_RTO_INIT_MS` | 200 | Initial retransmission timeout (ms) |
-| `NPS_CWND_INIT` | 2 | Initial congestion window |
-| `NPS_MAX_RETRIES` | 8 | Max retransmit attempts |
-| `NPS_CUBIC_BETA` | 0.7 | Multiplicative decrease factor |
+| `RIFT_MAX_PAYLOAD` | 1400 | Max payload per packet (bytes) |
+| `RIFT_WINDOW_SIZE` | 64 | Sliding window size |
+| `RIFT_RTO_INIT_MS` | 200 | Initial retransmission timeout (ms) |
+| `RIFT_CWND_INIT` | 2 | Initial congestion window |
+| `RIFT_MAX_RETRIES` | 8 | Max retransmit attempts |
+| `RIFT_CUBIC_BETA` | 0.7 | Multiplicative decrease factor |
 
 ## Project Layout
 

@@ -1,4 +1,4 @@
-/* loader.c — eBPF program loader for NPS (XDP/TC attach + map pinning) */
+/* loader.c — eBPF program loader for RIFT (XDP/TC attach + map pinning) */
 
 #include <errno.h>
 #include <getopt.h>
@@ -31,14 +31,14 @@ static int ensure_pin_path(const char *path) {
 }
 
 static void print_usage(const char *prog) {
-  printf("NPS eBPF Loader\n\n");
+  printf("RIFT eBPF Loader\n\n");
   printf("Usage: %s [options]\n\n", prog);
   printf("Options:\n");
   printf("  -i, --iface IFACE    Network interface (required)\n");
   printf("  -a, --attach TYPE    Attach type: 'xdp' or 'tc' (default: xdp)\n");
   printf("  -d, --detach         Detach existing program\n");
   printf("  -p, --pin-path PATH  BPF map pin path (default: %s)\n",
-         "/sys/fs/bpf/nps");
+         "/sys/fs/bpf/rift");
   printf("  -v, --verbose        Verbose output\n");
   printf("  -h, --help           Show this help\n");
 }
@@ -46,7 +46,7 @@ static void print_usage(const char *prog) {
 int main(int argc, char *argv[]) {
   const char *iface = NULL;
   const char *attach_type = "xdp";
-  const char *pin_path = "/sys/fs/bpf/nps";
+  const char *pin_path = "/sys/fs/bpf/rift";
   int detach = 0;
   int verbose = 0;
 
@@ -177,9 +177,9 @@ int main(int argc, char *argv[]) {
   /* ── Attach Program ───────────────────────────────────────────── */
   if (strcmp(attach_type, "xdp") == 0) {
     struct bpf_program *prog =
-        bpf_object__find_program_by_name(obj, "nps_xdp_filter");
+        bpf_object__find_program_by_name(obj, "rift_xdp_filter");
     if (!prog) {
-      fprintf(stderr, "Cannot find XDP program 'nps_xdp_filter'\n");
+      fprintf(stderr, "Cannot find XDP program 'rift_xdp_filter'\n");
       bpf_object__close(obj);
       return 1;
     }

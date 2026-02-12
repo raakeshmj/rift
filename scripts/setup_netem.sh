@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # setup_netem.sh - Network emulation setup using tc/netem
 #
-# Sets up packet loss, delay, and reordering for NPS testing.
+# Sets up packet loss, delay, and reordering for RIFT testing.
 # Requires: root, Linux with tc/netem support
 #
 # Usage:
@@ -13,18 +13,18 @@
 set -euo pipefail
 
 # Defaults
-IFACE="${NPS_IFACE:-lo}"
-LOSS="${NPS_LOSS:-5%}"
-DELAY="${NPS_DELAY:-10ms}"
-JITTER="${NPS_JITTER:-5ms}"
-REORDER="${NPS_REORDER:-2%}"
-DUPLICATE="${NPS_DUPLICATE:-0.1%}"
-CORRUPT="${NPS_CORRUPT:-0.1%}"
-PORT="${NPS_PORT:-9999}"
+IFACE="${RIFT_IFACE:-lo}"
+LOSS="${RIFT_LOSS:-5%}"
+DELAY="${RIFT_DELAY:-10ms}"
+JITTER="${RIFT_JITTER:-5ms}"
+REORDER="${RIFT_REORDER:-2%}"
+DUPLICATE="${RIFT_DUPLICATE:-0.1%}"
+CORRUPT="${RIFT_CORRUPT:-0.1%}"
+PORT="${RIFT_PORT:-9999}"
 
 usage() {
     cat <<EOF
-NPS Network Emulation Setup
+RIFT Network Emulation Setup
 
 Usage: $0 <command> [options]
 
@@ -34,17 +34,17 @@ Commands:
   status      Show current netem configuration
 
 Options (environment variables):
-  NPS_IFACE=lo        Interface (default: lo)
-  NPS_LOSS=5%         Packet loss rate
-  NPS_DELAY=10ms      Added delay
-  NPS_JITTER=5ms      Delay jitter
-  NPS_REORDER=2%      Packet reordering rate
-  NPS_DUPLICATE=0.1%  Packet duplication rate
-  NPS_CORRUPT=0.1%    Packet corruption rate
-  NPS_PORT=9999       Target port for filtering
+  RIFT_IFACE=lo        Interface (default: lo)
+  RIFT_LOSS=5%         Packet loss rate
+  RIFT_DELAY=10ms      Added delay
+  RIFT_JITTER=5ms      Delay jitter
+  RIFT_REORDER=2%      Packet reordering rate
+  RIFT_DUPLICATE=0.1%  Packet duplication rate
+  RIFT_CORRUPT=0.1%    Packet corruption rate
+  RIFT_PORT=9999       Target port for filtering
 
 Examples:
-  sudo NPS_LOSS=10% NPS_DELAY=50ms $0 setup
+  sudo RIFT_LOSS=10% RIFT_DELAY=50ms $0 setup
   sudo $0 teardown
 EOF
 }
@@ -74,7 +74,7 @@ setup_netem() {
         duplicate "$DUPLICATE" \
         corrupt "$CORRUPT"
 
-    # Filter NPS traffic to the netem qdisc
+    # Filter RIFT traffic to the netem qdisc
     tc filter add dev "$IFACE" parent 1:0 protocol ip u32 \
         match ip dport "$PORT" 0xffff flowid 1:3
 

@@ -16,15 +16,15 @@ while [ $(date +%s) -lt $END_TIME ]; do
     echo "[$CURRENT_TIME] Running benchmark iteration..." >> "$LOG_FILE"
     
     # Run standard benchmark
-    ./build/nps_metrics --size 104857600 --mode nps >> "$LOG_FILE" 2>&1
+    ./build/rift_metrics --size 104857600 --mode rift >> "$LOG_FILE" 2>&1
     
     # Run with 5% loss
     echo "[$CURRENT_TIME] Running loss iteration (5%)..." >> "$LOG_FILE"
     # Start loss sim background
-    ./build/nps_losssim 9000 9001 5 &
+    ./build/rift_losssim 9000 9001 5 &
     SIM_PID=$!
     sleep 1
-    ./build/nps_metrics --size 10485760 --port 9000 >> "$LOG_FILE" 2>&1
+    ./build/rift_metrics --size 10485760 --port 9000 >> "$LOG_FILE" 2>&1
     kill $SIM_PID 2>/dev/null || true
     
     # Sleep 60 seconds between iterations

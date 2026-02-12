@@ -12,7 +12,7 @@ ip link set dev lo xdpgeneric off 2>/dev/null || true
 ./ebpf/loader/loader --attach --iface lo --prog build/ebpf/xdp_filter.o
 
 # Run high-PPS flood
-./build/nps_metrics --mode nps --size 104857600
+./build/rift_metrics --mode rift --size 104857600
 
 # Read map stats
 ./ebpf/loader/map_reader stats

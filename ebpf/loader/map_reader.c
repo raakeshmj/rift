@@ -15,7 +15,7 @@
 #include "../common.bpf.h"
 
 static volatile int g_running = 1;
-static const char *g_pin_path = "/sys/fs/bpf/nps";
+static const char *g_pin_path = "/sys/fs/bpf/rift";
 
 static void signal_handler(int sig) {
   (void)sig;
@@ -48,16 +48,16 @@ static const char *ip_str(uint32_t ip_nbo) {
 /* ── Show Global Stats ────────────────────────────────────────────── */
 
 static void show_global_stats(void) {
-  int fd = open_pinned_map(NPS_MAP_GLOBAL_STATS);
+  int fd = open_pinned_map(RIFT_MAP_GLOBAL_STATS);
   if (fd < 0) {
     /* Try TC variant */
-    fd = open_pinned_map("nps_tc_global_stats");
+    fd = open_pinned_map("rift_tc_global_stats");
     if (fd < 0)
       return;
   }
 
   uint32_t key = 0;
-  struct nps_global_stats stats;
+  struct rift_global_stats stats;
 
   if (bpf_map_lookup_elem(fd, &key, &stats) != 0) {
     fprintf(stderr, "Failed to read global stats\n");
@@ -66,7 +66,7 @@ static void show_global_stats(void) {
   }
 
   printf("╔═══════════════════════════════════════════════════╗\n");
-  printf("║          NPS eBPF Global Statistics              ║\n");
+  printf("║          RIFT eBPF Global Statistics              ║\n");
   printf("╠═══════════════════════════════════════════════════╣\n");
   printf("║  Total Packets:      %-15lu            ║\n", stats.total_packets);
   printf("║  Total Bytes:        %-15lu            ║\n", stats.total_bytes);
@@ -74,8 +74,8 @@ static void show_global_stats(void) {
   printf("║  Dropped:            %-15lu            ║\n", stats.total_dropped);
   printf("║  Rate Limited:       %-15lu            ║\n",
          stats.total_rate_limited);
-  printf("║  NPS Protocol Pkts:  %-15lu            ║\n",
-         stats.nps_protocol_packets);
+  printf("║  RIFT Protocol Pkts:  %-15lu            ║\n",
+         stats.rift_protocol_packets);
   printf("╚═══════════════════════════════════════════════════╝\n");
 
   close(fd);
@@ -84,9 +84,9 @@ static void show_global_stats(void) {
 /* ── Show Connection Stats ────────────────────────────────────────── */
 
 static void show_conn_stats(void) {
-  int fd = open_pinned_map(NPS_MAP_CONN_STATS);
+  int fd = open_pinned_map(RIFT_MAP_CONN_STATS);
   if (fd < 0) {
-    fd = open_pinned_map("nps_tc_conn_stats");
+    fd = open_pinned_map("rift_tc_conn_stats");
     if (fd < 0)
       return;
   }
@@ -97,8 +97,8 @@ static void show_conn_stats(void) {
   printf("─────────────────────────────────────────────────────────"
          "──────────────────────\n");
 
-  struct nps_filter_key key = {0}, next_key;
-  struct nps_conn_stats stats;
+  struct rift_filter_key key = {0}, next_key;
+  struct rift_conn_stats stats;
   int count = 0;
 
   while (bpf_map_get_next_key(fd, &key, &next_key) == 0 && count < 100) {
@@ -122,9 +122,9 @@ static void show_conn_stats(void) {
 /* ── List Filter Rules ────────────────────────────────────────────── */
 
 static void list_rules(void) {
-  int fd = open_pinned_map(NPS_MAP_FILTER_RULES);
+  int fd = open_pinned_map(RIFT_MAP_FILTER_RULES);
   if (fd < 0) {
-    fd = open_pinned_map("nps_tc_filter_rules");
+    fd = open_pinned_map("rift_tc_filter_rules");
     if (fd < 0)
       return;
   }
@@ -135,8 +135,8 @@ static void list_rules(void) {
   printf("─────────────────────────────────────────────────────────"
          "──────────────\n");
 
-  struct nps_filter_key key = {0}, next_key;
-  struct nps_filter_rule rule;
+  struct rift_filter_key key = {0}, next_key;
+  struct rift_filter_rule rule;
   int count = 0;
 
   const char *action_names[] = {"PASS", "DROP", "LIMIT"};
@@ -165,11 +165,11 @@ static void list_rules(void) {
 static int add_rule(const char *src_ip, const char *dst_ip, uint16_t src_port,
                     uint16_t dst_port, uint8_t proto, int action,
                     uint64_t rate_pps) {
-  int fd = open_pinned_map(NPS_MAP_FILTER_RULES);
+  int fd = open_pinned_map(RIFT_MAP_FILTER_RULES);
   if (fd < 0)
     return -1;
 
-  struct nps_filter_key key = {
+  struct rift_filter_key key = {
       .src_port = htons(src_port),
       .dst_port = htons(dst_port),
       .protocol = proto,
@@ -183,7 +183,7 @@ static int add_rule(const char *src_ip, const char *dst_ip, uint16_t src_port,
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
 
-  struct nps_filter_rule rule = {
+  struct rift_filter_rule rule = {
       .action = action,
       .rate_pps = rate_pps,
       .rate_bps = 0,
@@ -224,7 +224,7 @@ static void watch_stats(int interval_ms) {
 /* ── Main ─────────────────────────────────────────────────────────── */
 
 static void print_usage(const char *prog) {
-  printf("NPS BPF Map Reader\n\n");
+  printf("RIFT BPF Map Reader\n\n");
   printf("Usage: %s <command> [options]\n\n", prog);
   printf("Commands:\n");
   printf("  stats                          Show global and connection stats\n");
@@ -237,7 +237,7 @@ static void print_usage(const char *prog) {
   printf("  del-rule SRC DST SPORT DPORT PROTO\n");
   printf("                                 Delete a filter rule\n");
   printf("\nOptions:\n");
-  printf("  -p PATH   BPF pin path (default: /sys/fs/bpf/nps)\n");
+  printf("  -p PATH   BPF pin path (default: /sys/fs/bpf/rift)\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -284,11 +284,11 @@ int main(int argc, char *argv[]) {
               argv[0]);
       return 1;
     }
-    int fd = open_pinned_map(NPS_MAP_FILTER_RULES);
+    int fd = open_pinned_map(RIFT_MAP_FILTER_RULES);
     if (fd < 0)
       return 1;
 
-    struct nps_filter_key key = {
+    struct rift_filter_key key = {
         .src_port = htons((uint16_t)atoi(argv[4])),
         .dst_port = htons((uint16_t)atoi(argv[5])),
         .protocol = (uint8_t)atoi(argv[6]),

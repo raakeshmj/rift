@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# NPS eBPF - Makefile for eBPF programs
+# RIFT eBPF - Makefile for eBPF programs
 # Requires: clang, linux headers, libbpf
 # Supports BPF CO-RE (Compile Once, Run Everywhere)
 # ═══════════════════════════════════════════════════════════════════
@@ -40,8 +40,8 @@ BPF_OBJS    = $(BUILD_DIR)/xdp_filter.bpf.o \
 BPF_SKELS   = $(SKEL_DIR)/xdp_filter.skel.h \
               $(SKEL_DIR)/tc_filter.skel.h
 
-USER_BINS   = $(BUILD_DIR)/nps_loader \
-              $(BUILD_DIR)/nps_map_reader
+USER_BINS   = $(BUILD_DIR)/rift_loader \
+              $(BUILD_DIR)/rift_map_reader
 
 .PHONY: all bpf skeletons user clean vmlinux
 
@@ -50,8 +50,8 @@ all: bpf skeletons user
 	@echo "eBPF build complete (CO-RE enabled):"
 	@echo "  BPF objects:  $(BPF_OBJS)"
 	@echo "  Skeletons:    $(BPF_SKELS)"
-	@echo "  Loader:       $(BUILD_DIR)/nps_loader"
-	@echo "  Map reader:   $(BUILD_DIR)/nps_map_reader"
+	@echo "  Loader:       $(BUILD_DIR)/rift_loader"
+	@echo "  Map reader:   $(BUILD_DIR)/rift_map_reader"
 
 $(BUILD_DIR) $(SKEL_DIR):
 	@mkdir -p $@
@@ -91,11 +91,11 @@ $(SKEL_DIR)/tc_filter.skel.h: $(BUILD_DIR)/tc_filter.bpf.o | $(SKEL_DIR)
 # ── Userspace Tools ───────────────────────────────────────────────
 user: $(USER_BINS)
 
-$(BUILD_DIR)/nps_loader: loader/loader.c common.bpf.h | $(BUILD_DIR)
+$(BUILD_DIR)/rift_loader: loader/loader.c common.bpf.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS_USER) -I$(SKEL_DIR) $< $(LDFLAGS_USER) -o $@
 	@echo "  [LINK]  $@"
 
-$(BUILD_DIR)/nps_map_reader: loader/map_reader.c common.bpf.h | $(BUILD_DIR)
+$(BUILD_DIR)/rift_map_reader: loader/map_reader.c common.bpf.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS_USER) $< $(LDFLAGS_USER) -o $@
 	@echo "  [LINK]  $@"
 
